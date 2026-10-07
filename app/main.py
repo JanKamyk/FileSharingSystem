@@ -1,14 +1,34 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from typing import Dict
+from typing import Dict, AsyncGenerator
+from contextlib import asynccontextmanager
 import os
+import asyncio
 
 from app.config import SHARED_DIR, GOFILE_API_TOKEN
 from app.services.files import scan_directory
 from app.services.gofile import upload_file_to_gofile
+from app.services.cleanup import cleanup_old_files
 
-app = FastAPI(title="Automated Ephemeral File Sharing Portal")
+async def cleanup_task():
+    while True:
+        await cleanup_old_files(SHARED_DIR, max_age_hours=24)
+        await asyncio.sleep(3600)  # Sleep for 1 hour
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator:
+    # Start the background task
+    task = asyncio.create_task(cleanup_task())
+    yield
+    # Cancel the background task on shutdown
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(title="Automated Ephemeral File Sharing Portal", lifespan=lifespan)
 templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/", response_class=HTMLResponse)
