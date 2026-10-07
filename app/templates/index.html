@@ -46,8 +46,8 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ file.modified }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" id="action-{{ loop.index }}">
+                                        <button onclick="shareFile('{{ file.filename }}', 'action-{{ loop.index }}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                                             Share
                                         </button>
                                     </td>
@@ -66,5 +66,36 @@
             </div>
         </main>
     </div>
+
+    <script>
+        async function shareFile(filename, containerId) {
+            const container = document.getElementById(containerId);
+            const originalHtml = container.innerHTML;
+
+            // Set loading state
+            container.innerHTML = '<span class="text-gray-500 font-medium">Uploading...</span>';
+
+            try {
+                const response = await fetch(`/api/share/${encodeURIComponent(filename)}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Upload failed');
+                }
+
+                // Replace with clickable link
+                container.innerHTML = `<a href="${data.link}" target="_blank" class="text-indigo-600 hover:text-indigo-900 font-medium underline">Link</a>`;
+
+            } catch (error) {
+                console.error('Error sharing file:', error);
+                alert(`Failed to share ${filename}: ${error.message}`);
+                // Revert to original button on failure
+                container.innerHTML = originalHtml;
+            }
+        }
+    </script>
 </body>
 </html>
