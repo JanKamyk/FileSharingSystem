@@ -10,17 +10,35 @@
     <div class="max-w-5xl mx-auto py-10 px-4">
         <header class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900">Ephemeral File Sharing Portal</h1>
-            <p class="text-gray-500 mt-2">Scanning directory: <span class="font-mono text-gray-700">{{ shared_dir }}</span></p>
+            <p class="text-gray-500 mt-2">
+                Path:
+                <a href="/" class="text-blue-600 hover:underline font-mono">/</a>
+                {% if root_name %}
+                    <span class="text-gray-400">/</span>
+                    <a href="/browse/{{ root_name }}" class="text-blue-600 hover:underline font-mono">{{ root_name }}</a>
+                {% endif %}
+                {% for crumb in breadcrumbs %}
+                    <span class="text-gray-400">/</span>
+                    <a href="{{ crumb.path }}" class="text-blue-600 hover:underline font-mono">{{ crumb.name }}</a>
+                {% endfor %}
+            </p>
         </header>
 
         <main>
+            {% if not is_root %}
+                <div class="mb-4">
+                    <a href="javascript:history.back()" class="text-blue-600 hover:text-blue-800 font-medium">
+                        &larr; Go Back
+                    </a>
+                </div>
+            {% endif %}
             <div class="bg-white shadow rounded-lg overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Filename
+                                    Name
                                 </th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Size
@@ -38,7 +56,17 @@
                                 {% for file in files %}
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {{ file.filename }}
+                                        {% if file.type == 'folder' %}
+                                            <span class="mr-2">📁</span>
+                                            {% if is_root %}
+                                                <a href="/browse/{{ file.filename }}" class="text-blue-600 hover:underline">{{ file.filename }}</a>
+                                            {% else %}
+                                                <a href="/browse/{{ root_name }}{{ '/' ~ subpath if subpath else '' }}/{{ file.filename }}" class="text-blue-600 hover:underline">{{ file.filename }}</a>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="mr-2">📄</span>
+                                            {{ file.filename }}
+                                        {% endif %}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ file.size }}
@@ -47,16 +75,18 @@
                                         {{ file.modified }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" id="action-{{ loop.index }}">
-                                        <button onclick="shareFile('{{ file.filename }}', 'action-{{ loop.index }}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                                            Share
-                                        </button>
+                                        {% if not is_root %}
+                                            <button onclick="shareFile('{{ root_name }}', '{{ subpath ~ '/' if subpath else '' }}{{ file.filename }}', 'action-{{ loop.index }}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                                                Share
+                                            </button>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                                 <tr>
                                     <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
-                                        No files found in the shared directory.
+                                        No items found.
                                     </td>
                                 </tr>
                             {% endif %}
@@ -68,15 +98,18 @@
     </div>
 
     <script>
-        async function shareFile(filename, containerId) {
+        async function shareFile(rootName, subpath, containerId) {
             const container = document.getElementById(containerId);
             const originalHtml = container.innerHTML;
 
             // Set loading state
             container.innerHTML = '<span class="text-gray-500 font-medium">Uploading...</span>';
 
+            // Clean up subpath (remove leading slash if present)
+            subpath = subpath.replace(/^\/+/, '');
+
             try {
-                const response = await fetch(`/api/share/${encodeURIComponent(filename)}`, {
+                const response = await fetch(`/api/share/${encodeURIComponent(rootName)}/${subpath.split('/').map(encodeURIComponent).join('/')}`, {
                     method: 'POST'
                 });
 
