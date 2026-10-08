@@ -34,6 +34,22 @@ async def get_root_folder_id(token: str, account_id: str) -> str:
             return data["data"]["rootFolder"]
         raise Exception(f"Failed to get root folder ID: {data}")
 
+async def set_content_public(token: str, content_id: str) -> None:
+    async with httpx.AsyncClient() as client:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "attribute": "public",
+            "attributeValue": True
+        }
+        response = await client.put(f"https://api.gofile.io/contents/{content_id}/update", headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("status") != "ok":
+            print(f"Warning: Failed to set content public: {data}")
+
 async def create_folder(token: str, parent_folder_id: str, folder_name: str) -> tuple[str, str]:
     async with httpx.AsyncClient() as client:
         headers = {
@@ -42,7 +58,8 @@ async def create_folder(token: str, parent_folder_id: str, folder_name: str) -> 
         }
         payload = {
             "parentFolderId": parent_folder_id,
-            "folderName": folder_name
+            "folderName": folder_name,
+            "public": True
         }
         response = await client.post("https://api.gofile.io/contents/createFolder", headers=headers, json=payload)
         response.raise_for_status()
@@ -98,6 +115,9 @@ async def _upload_single_file(file_path: str, token: Optional[str] = None, folde
 
         data = response.json()
         if data.get("status") == "ok":
+            file_id = data["data"].get("fileId")
+            if token and file_id:
+                await set_content_public(token, file_id)
             return data["data"]["downloadPage"]
 
         raise Exception(f"GoFile upload failed: {data}")
