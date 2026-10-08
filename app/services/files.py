@@ -34,18 +34,26 @@ async def scan_directory(path: str) -> List[Dict[str, Union[str, int]]]:
 
         # Using scandir for better performance
         for entry in os.scandir(path):
-            if entry.is_file():
-                try:
-                    stat = entry.stat()
-                    mod_time = datetime.fromtimestamp(stat.st_mtime)
+            try:
+                stat = entry.stat()
+                mod_time = datetime.fromtimestamp(stat.st_mtime)
+                if entry.is_file():
                     files.append({
                         "filename": entry.name,
+                        "type": "file",
                         "size": format_size(stat.st_size),
                         "modified": mod_time.strftime("%Y-%m-%d %H:%M:%S")
                     })
-                except OSError:
-                    # Skip files we can't access
-                    continue
+                elif entry.is_dir():
+                    files.append({
+                        "filename": entry.name,
+                        "type": "folder",
+                        "size": "-",
+                        "modified": mod_time.strftime("%Y-%m-%d %H:%M:%S")
+                    })
+            except OSError:
+                # Skip files we can't access
+                continue
 
     except OSError as e:
         print(f"Error scanning directory {path}: {e}")
