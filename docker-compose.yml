@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  ephemeral-portal:
+    build: .
+    container_name: ephemeral-file-portal
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Map the ZimaOS external HDD to the app's internal shared directory
+      - /mnt/external_hdd:/app/test_files
+    restart: unless-stopped
